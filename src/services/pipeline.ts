@@ -1,5 +1,5 @@
 import { PipelineStage, UserRole } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from "@/lib/prisma";
 
 export type PipelineTrigger =
   | 'first_outbound'
@@ -148,6 +148,7 @@ export async function processStageTransition(
   movedById?: string
 ): Promise<{ stage: PipelineStage; reason: string } | null> {
   try {
+    const prisma = getPrisma();
     // Get current pipeline record
     const pipelineRecord = await prisma.pipelineRecord.findUnique({
       where: { contactId },
