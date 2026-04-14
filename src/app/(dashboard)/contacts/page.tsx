@@ -1,11 +1,8 @@
 export const dynamic = "force-dynamic";
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { TierBadge } from "@/components/shared/tier-badge";
-import { StageBadge } from "@/components/shared/stage-badge";
-import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/prisma";
-import Link from "next/link";
+import ContactsTable from "@/components/contacts/ContactsTable";
 
 interface ContactRow {
   id: string;
@@ -22,6 +19,7 @@ interface ContactRow {
 
 export default async function ContactsPage() {
   const prisma = getPrisma();
+
   const contacts = await prisma.contact.findMany({
     include: {
       owner: true,
@@ -42,110 +40,12 @@ export default async function ContactsPage() {
     accountName: contact.account?.name ?? null,
     tier: contact.tier,
     fitScore: contact.fitScore,
-    stage: contact.pipelineRecord?.stage || "IDENTIFIED",
+    stage: contact.pipelineRecord?.stage ?? "IDENTIFIED",
     emailVerificationStatus: contact.emailVerificationStatus,
-    ownerName: contact.owner ? `${contact.owner.firstName} ${contact.owner.lastName}` : null,
+    ownerName: contact.owner
+      ? `${contact.owner.firstName} ${contact.owner.lastName}`
+      : null,
   }));
-
-  const columns: Column<ContactRow>[] = [
-    {
-      id: "fullName",
-      header: "Name",
-      accessorKey: "fullName",
-      sortable: true,
-      cell: (value, row) => (
-        <Link
-          href={`/contacts/${row.id}`}
-          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-        >
-          {value}
-        </Link>
-      ),
-    },
-    {
-      id: "email",
-      header: "Email",
-      accessorKey: "email",
-      sortable: true,
-      cell: (value) => (
-        <span className="text-sm text-slate-600 dark:text-slate-400">{value}</span>
-      ),
-    },
-    {
-      id: "title",
-      header: "Title",
-      accessorKey: "title",
-      cell: (value) =>
-        value ? (
-          <span className="text-sm">{value}</span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-    {
-      id: "accountName",
-      header: "Company",
-      accessorKey: "accountName",
-      cell: (value) =>
-        value ? (
-          <span className="text-sm">{value}</span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-    {
-      id: "tier",
-      header: "Tier",
-      accessorKey: "tier",
-      cell: (value) => <TierBadge tier={value as "A" | "B" | "C"} />,
-    },
-    {
-      id: "fitScore",
-      header: "Score",
-      accessorKey: "fitScore",
-      sortable: true,
-      cell: (value) => (
-        <span className="text-sm font-medium text-slate-900 dark:text-white">
-          {value}
-        </span>
-      ),
-    },
-    {
-      id: "stage",
-      header: "Stage",
-      accessorKey: "stage",
-      cell: (value) => <StageBadge stage={value as any} />,
-    },
-    {
-      id: "emailVerificationStatus",
-      header: "Verification",
-      accessorKey: "emailVerificationStatus",
-      cell: (value: any) => {
-        const statusVariants: Record<string, "success" | "warning" | "destructive" | "default"> = {
-          VALID: "success",
-          INVALID: "destructive",
-          RISKY: "warning",
-          UNVERIFIED: "default",
-        };
-        return (
-          <Badge variant={typeof value === "string" ? statusVariants[value] || "default" : "default"}>
-            {value}
-          </Badge>
-        );
-      },
-    },
-    {
-      id: "ownerName",
-      header: "Owner",
-      accessorKey: "ownerName",
-      cell: (value) =>
-        value ? (
-          <span className="text-sm">{value}</span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -166,13 +66,7 @@ export default async function ContactsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={columns}
-            data={rows}
-            onRowClick={(row) => {
-              // Navigation handled by link in cell renderer
-            }}
-          />
+          <ContactsTable data={rows} />
         </CardContent>
       </Card>
     </div>
