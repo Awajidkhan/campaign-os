@@ -19,16 +19,10 @@ export default async function AccountsPage() {
   const prisma = getPrisma();
 
   const accounts = await prisma.account.findMany({
-    select: {
-      id: true,
-      name: true,
-      domain: true,
-      industry: true,
-      aumRange: true,
-      status: true,
-      _count: {
-        select: { contacts: true },
-      },
+    include: {
+      contacts: true,
+      tasks: true,
+      _count: true,
     },
     orderBy: { name: "asc" },
     take: 100,

@@ -23,30 +23,10 @@ interface ContactRow {
 export default async function ContactsPage() {
   const prisma = getPrisma();
   const contacts = await prisma.contact.findMany({
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      title: true,
-      tier: true,
-      fitScore: true,
-      emailVerificationStatus: true,
-      owner: {
-        select: {
-          firstName: true,
-          lastName: true,
-        },
-      },
-      account: {
-        select: {
-          name: true,
-        },
-      },
-      pipelineRecord: {
-        select: {
-          stage: true,
-        },
-      },
+    include: {
+      owner: true,
+      account: true,
+      pipelineRecord: true,
     },
     take: 50,
     orderBy: { createdAt: "desc" },
@@ -59,14 +39,12 @@ export default async function ContactsPage() {
     fullName: contact.fullName,
     email: contact.email,
     title: contact.title,
-    accountName: contact.account?.name || null,
+    accountName: contact.account?.name ?? null,
     tier: contact.tier,
     fitScore: contact.fitScore,
     stage: contact.pipelineRecord?.stage || "IDENTIFIED",
     emailVerificationStatus: contact.emailVerificationStatus,
-    ownerName: contact.owner
-      ? `${contact.owner.firstName} ${contact.owner.lastName}`
-      : null,
+    ownerName: contact.owner ? `${contact.owner.firstName} ${contact.owner.lastName}` : null,
   }));
 
   const columns: Column<ContactRow>[] = [

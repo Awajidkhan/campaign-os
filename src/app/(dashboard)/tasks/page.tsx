@@ -27,6 +27,8 @@ export default async function TasksPage() {
     include: {
       assignedTo: true,
       contact: true,
+      account: true,
+      replyEvent: true,
     },
     orderBy: { dueAt: "asc" },
     take: 100,

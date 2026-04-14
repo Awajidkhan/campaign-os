@@ -33,8 +33,8 @@ const navItems = [
   { href: "/tasks", icon: CheckSquare, label: "Tasks" },
   { href: "/mailboxes", icon: Mail, label: "Mailboxes" },
   { href: "/content", icon: Calendar, label: "Content" },
-  { href: "/admin", icon: Settings, label: "Admin" },
-  { href: "/audit-log", icon: FileText, label: "Audit Log" },
+  { href: "/admin/settings", icon: Settings, label: "Admin" },
+  { href: "/audit", icon: FileText, label: "Audit Log" },
 ];
 
 export function Sidebar({ collapsed: initialCollapsed = false }: SidebarProps) {

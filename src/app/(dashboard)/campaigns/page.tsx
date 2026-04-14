@@ -19,20 +19,10 @@ interface CampaignRow {
 export default async function CampaignsPage() {
   const prisma = getPrisma();
   const campaigns = await prisma.campaign.findMany({
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      targetAudience: true,
-      startDate: true,
-      endDate: true,
-      _count: {
-        select: {
-          enrollments: {
-            where: { status: { in: ["ACTIVE", "PENDING"] } },
-          },
-        },
-      },
+    include: {
+      sequences: true,
+      enrollments: true,
+      _count: true,
     },
     orderBy: { createdAt: "desc" },
   });
