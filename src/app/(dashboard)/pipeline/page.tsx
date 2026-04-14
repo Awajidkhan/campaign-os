@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { StageBadge } from "@/components/shared/stage-badge";
 import { TierBadge } from "@/components/shared/tier-badge";
