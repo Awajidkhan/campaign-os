@@ -1,12 +1,10 @@
 export const dynamic = "force-dynamic";
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/prisma";
-import Link from "next/link";
+import CampaignsTable from "@/components/campaigns/CampaignsTable";
 
 interface CampaignRow {
-
   id: string;
   name: string;
   status: string;
@@ -18,11 +16,14 @@ interface CampaignRow {
 
 export default async function CampaignsPage() {
   const prisma = getPrisma();
+
   const campaigns = await prisma.campaign.findMany({
     include: {
-      sequences: true,
-      enrollments: true,
-      _count: true,
+      _count: {
+        select: {
+          enrollments: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -36,90 +37,6 @@ export default async function CampaignsPage() {
     startDate: campaign.startDate,
     endDate: campaign.endDate,
   }));
-
-  const statusVariants: Record<string, "default" | "success" | "warning" | "secondary"> = {
-    DRAFT: "default",
-    ACTIVE: "success",
-    PAUSED: "warning",
-    COMPLETED: "secondary",
-    ARCHIVED: "default",
-  };
-
-  const columns: Column<CampaignRow>[] = [
-    {
-      id: "name",
-      header: "Campaign Name",
-      accessorKey: "name",
-      sortable: true,
-      cell: (value: any, row) => (
-        <Link
-          href={`/campaigns/${row.id}`}
-          className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
-        >
-          {value as React.ReactNode}
-        </Link>
-      ),
-    },
-    {
-      id: "status",
-      header: "Status",
-      accessorKey: "status",
-      sortable: true,
-      cell: (value: any) => (
-        <Badge variant={typeof value === "string" ? statusVariants[value] || "default" : "default"}>
-          {value as React.ReactNode}
-        </Badge>
-      ),
-    },
-    {
-      id: "targetAudience",
-      header: "Target Audience",
-      accessorKey: "targetAudience",
-      cell: (value: any) =>
-        value ? (
-          <span className="text-sm">{value as React.ReactNode}</span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-    {
-      id: "enrolledCount",
-      header: "Enrolled",
-      accessorKey: "enrolledCount",
-      sortable: true,
-      cell: (value: any) => (
-        <span className="text-sm font-medium">{value as React.ReactNode}</span>
-      ),
-    },
-    {
-      id: "startDate",
-      header: "Start Date",
-      accessorKey: "startDate",
-      sortable: true,
-      cell: (value: any) =>
-        value ? (
-          <span className="text-sm">
-            {new Date(value as Date).toLocaleDateString()}
-          </span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-    {
-      id: "endDate",
-      header: "End Date",
-      accessorKey: "endDate",
-      sortable: true,
-      cell: (value: any) =>
-        value ? (
-          <span className="text-sm">
-            {new Date(value as Date).toLocaleDateString()}
-          </span>
-        ) : (
-          <span className="text-sm text-slate-400">—</span>
-        ),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -140,11 +57,7 @@ export default async function CampaignsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={columns}
-            data={rows}
-            pageSize={20}
-          />
+          <CampaignsTable data={rows} />
         </CardContent>
       </Card>
     </div>
