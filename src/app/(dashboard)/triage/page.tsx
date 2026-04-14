@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SLATimer } from "@/components/shared/sla-timer";
 import { TierBadge } from "@/components/shared/tier-badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   ArrowUpRight, CheckCircle2, Ban, Pause, Plus, Zap,
@@ -53,6 +53,7 @@ function computeSLADeadline(category: string, receivedAt: Date): Date {
 }
 
 export default async function TriagePage() {
+  const prisma = getPrisma();
   const [untriaged, recentTriaged, templates, categoryCounts] = await Promise.all([
     prisma.replyEvent.findMany({
       where: { isTriaged: false },

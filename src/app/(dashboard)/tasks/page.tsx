@@ -4,7 +4,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { PriorityBadge } from "@/components/shared/priority-badge";
 import { SLATimer } from "@/components/shared/sla-timer";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 
 interface TaskRow {
@@ -20,6 +20,7 @@ interface TaskRow {
 }
 
 export default async function TasksPage() {
+  const prisma = getPrisma();
   const now = new Date();
 
   const tasks = await prisma.task.findMany({

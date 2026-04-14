@@ -1,9 +1,10 @@
 export const dynamic = "force-dynamic";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export default async function MailboxesPage() {
+  const prisma = getPrisma();
   const mailboxes = await prisma.mailbox.findMany({
     orderBy: { email: "asc" },
   });
@@ -110,11 +111,10 @@ export default async function MailboxesPage() {
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
                     <div
-                      className={`h-2 rounded-full ${
-                        mailbox.sentCount > mailbox.dailyMax * 0.8
+                      className={`h-2 rounded-full ${mailbox.sentCount > mailbox.dailyMax * 0.8
                           ? "bg-red-600"
                           : "bg-blue-600"
-                      }`}
+                        }`}
                       style={{
                         width: `${Math.min(
                           (mailbox.sentCount / mailbox.dailyMax) * 100,

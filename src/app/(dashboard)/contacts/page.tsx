@@ -4,7 +4,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { TierBadge } from "@/components/shared/tier-badge";
 import { StageBadge } from "@/components/shared/stage-badge";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 
 interface ContactRow {
@@ -21,6 +21,7 @@ interface ContactRow {
 }
 
 export default async function ContactsPage() {
+  const prisma = getPrisma();
   const contacts = await prisma.contact.findMany({
     select: {
       id: true,

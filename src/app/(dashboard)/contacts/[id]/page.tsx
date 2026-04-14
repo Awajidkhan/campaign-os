@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TierBadge } from "@/components/shared/tier-badge";
 import { StageBadge } from "@/components/shared/stage-badge";
 import { PriorityBadge } from "@/components/shared/priority-badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -42,6 +42,7 @@ interface ContactDetailPageProps {
 }
 
 export default async function ContactDetailPage({ params }: ContactDetailPageProps) {
+const prisma = getPrisma();
   const { id } = await params;
 
   const contact = await prisma.contact.findUnique({

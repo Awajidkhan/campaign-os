@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 export default async function ContentCalendarPage() {
+  const prisma = getPrisma();
   const contentItems = await prisma.contentItem.findMany({
     include: {
       profile: true,

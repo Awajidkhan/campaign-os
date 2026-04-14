@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 interface UserRow {
   id: string;
@@ -37,6 +38,7 @@ interface StageRuleRow {
 }
 
 export default async function SettingsPage() {
+  const prisma = getPrisma();
   const [users, templates, slaConfigs, stageRules] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },

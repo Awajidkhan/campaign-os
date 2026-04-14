@@ -5,7 +5,7 @@ import { SLATimer } from "@/components/shared/sla-timer";
 import { StageBadge } from "@/components/shared/stage-badge";
 import { TierBadge } from "@/components/shared/tier-badge";
 import { PriorityBadge } from "@/components/shared/priority-badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
   Users, Send, Inbox, AlertTriangle, CheckCircle2, Clock, Mail,
@@ -36,6 +36,7 @@ const stageLabels: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
+  const prisma = getPrisma();
   const [
     totalContacts,
     sendableContacts,
@@ -51,6 +52,7 @@ export default async function DashboardPage() {
     hotTasks,
     untriagedHot,
   ] = await Promise.all([
+
     prisma.contact.count({ where: { deletedAt: null } }),
     prisma.contact.count({
       where: { emailVerificationStatus: "VALID", doNotContact: false, deletedAt: null },
@@ -362,11 +364,10 @@ export default async function DashboardPage() {
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-start justify-between gap-3 p-3 rounded-lg border ${
-                        isOverdue
+                      className={`flex items-start justify-between gap-3 p-3 rounded-lg border ${isOverdue
                           ? "border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10"
                           : "border-slate-200 dark:border-slate-700"
-                      }`}
+                        }`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -417,11 +418,10 @@ export default async function DashboardPage() {
                   return (
                     <div
                       key={mb.id}
-                      className={`p-3 rounded-lg border ${
-                        hasAlert
+                      className={`p-3 rounded-lg border ${hasAlert
                           ? "border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10"
                           : "border-slate-200 dark:border-slate-700"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -435,8 +435,8 @@ export default async function DashboardPage() {
                             mb.warmupStatus === "WARM"
                               ? "success"
                               : mb.warmupStatus === "WARMING"
-                              ? "warning"
-                              : "secondary"
+                                ? "warning"
+                                : "secondary"
                           }
                         >
                           {mb.warmupStatus === "WARM" ? "Warm" : mb.warmupStatus === "WARMING" ? "Warming" : mb.warmupStatus}
@@ -532,14 +532,14 @@ export default async function DashboardPage() {
                               {details.from && details.to
                                 ? `${details.from} → ${details.to}`
                                 : details.category
-                                ? details.category.replace(/_/g, " ").toLowerCase()
-                                : details.campaign
-                                ? details.campaign
-                                : details.title
-                                ? details.title
-                                : details.status
-                                ? details.status
-                                : null}
+                                  ? details.category.replace(/_/g, " ").toLowerCase()
+                                  : details.campaign
+                                    ? details.campaign
+                                    : details.title
+                                      ? details.title
+                                      : details.status
+                                        ? details.status
+                                        : null}
                             </p>
                           )}
                           <p className="text-xs text-slate-400 mt-0.5">

@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { StageBadge } from "@/components/shared/stage-badge";
 import { TierBadge } from "@/components/shared/tier-badge";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 
 const stageOrder: Record<string, number> = {
@@ -18,6 +18,7 @@ const stageOrder: Record<string, number> = {
 };
 
 export default async function PipelineViewPage() {
+  const prisma = getPrisma();
   const pipelineRecords = await prisma.pipelineRecord.findMany({
     include: {
       contact: {
@@ -100,9 +101,9 @@ export default async function PipelineViewPage() {
 
                   const daysInStage = lastStageMove
                     ? Math.floor(
-                        (new Date().getTime() - lastStageMove.movedAt.getTime()) /
-                          (1000 * 60 * 60 * 24)
-                      )
+                      (new Date().getTime() - lastStageMove.movedAt.getTime()) /
+                      (1000 * 60 * 60 * 24)
+                    )
                     : 0;
 
                   return (

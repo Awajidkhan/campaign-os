@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 interface AuditRow {
   id: string;
@@ -15,6 +15,7 @@ interface AuditRow {
 }
 
 export default async function AuditLogPage() {
+  const prisma = getPrisma();
   const logs = await prisma.activityLog.findMany({
     include: {
       user: true,

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import Link from "next/link";
 
 interface AccountRow {
@@ -16,6 +16,8 @@ interface AccountRow {
 }
 
 export default async function AccountsPage() {
+  const prisma = getPrisma();
+
   const accounts = await prisma.account.findMany({
     select: {
       id: true,

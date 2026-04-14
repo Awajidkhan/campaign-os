@@ -4,7 +4,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StageBadge } from "@/components/shared/stage-badge";
 import { TierBadge } from "@/components/shared/tier-badge";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -27,6 +27,7 @@ interface ContactRow {
 export default async function AccountDetailPage({
   params,
 }: AccountDetailPageProps) {
+  const prisma = getPrisma();
   const account = await prisma.account.findUnique({
     where: { id: params.id },
     include: {

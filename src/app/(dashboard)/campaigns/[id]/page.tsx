@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { TierBadge } from "@/components/shared/tier-badge";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -27,6 +27,7 @@ interface EnrollmentRow {
 export default async function CampaignDetailPage({
   params,
 }: CampaignDetailPageProps) {
+  const prisma = getPrisma();
   const campaign = await prisma.campaign.findUnique({
     where: { id: params.id },
     include: {
