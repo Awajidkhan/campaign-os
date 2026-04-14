@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --sidebar-bg: #0f172a;
+    --sidebar-text: #f1f5f9;
+    --content-bg: #ffffff;
+    --content-text: #0f172a;
+    --border: #e2e8f0;
+    --input-bg: #f8fafc;
+    --input-border: #cbd5e1;
+    --muted-text: #64748b;
+    --accent: #3b82f6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --destructive: #ef4444;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #0f172a;
+      --foreground: #f1f5f9;
+      --sidebar-bg: #0f172a;
+      --sidebar-text: #e2e8f0;
+      --content-bg: #1e293b;
+      --content-text: #f1f5f9;
+      --border: #334155;
+      --input-bg: #0f172a;
+      --input-border: #475569;
+      --muted-text: #94a3b8;
+      --accent: #3b82f6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --destructive: #ef4444;
+    }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-50 px-3 py-2;
+  }
+
+  button {
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  .sidebar-nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-colors duration-200 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100;
+  }
+
+  .sidebar-nav-item.active {
+    @apply bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300;
+  }
+
+  .data-table-cell {
+    @apply px-4 py-3 text-sm border-b border-slate-200 dark:border-slate-700;
+  }
+
+  .data-table-header {
+    @apply px-4 py-3 text-xs font-semibold uppercase tracking-wide bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700;
+  }
+
+  .input-focus {
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900;
+  }
+
+  .ops-card {
+    @apply rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm;
+  }
+}

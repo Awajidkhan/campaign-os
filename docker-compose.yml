@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: akru_campaign_os_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: akru_campaign_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - akru_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: akru_campaign_os_app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/akru_campaign_os
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-secret-here-change-in-production}
+      NEXTAUTH_URL: http://localhost:3000
+      INSTANTLY_API_KEY: ${INSTANTLY_API_KEY:-}
+      ZEROBOUNCE_API_KEY: ${ZEROBOUNCE_API_KEY:-}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - akru_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  akru_network:
+    driver: bridge

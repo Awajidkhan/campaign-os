@@ -1,0 +1,685 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  MOHSIN    // sees all, owns hot/qualified
+  OPERATOR  // triage, contacts, campaigns, content drafts
+  VIEWER    // read-only
+}
+
+enum ContactTier {
+  A // Hot — PE/RE sponsors, fund admins, high AUM
+  B // Warm — RIAs, advisory, mid-tier
+  C // Long-term — broad market, low score
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VALID
+  INVALID
+  RISKY
+  DISPOSABLE
+  CATCH_ALL
+  UNKNOWN
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  BOUNCED
+  UNSUBSCRIBED
+  REPLIED
+  STOPPED
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+// Reply classification per AKRU operating model
+enum ReplyCategory {
+  HOT_MEETING_REQUEST    // SLA: 2 hours → Mohsin
+  HOT_INTEREST           // SLA: 4 hours → Mohsin
+  WARM_TIMING            // SLA: 24 hours → Sena/Jawad
+  WARM_QUESTION          // SLA: 12 hours → Sena/Jawad
+  REFERRAL               // SLA: 4 hours → Mohsin
+  NEGATIVE_NOT_INTERESTED // SLA: 24 hours
+  NEGATIVE_HOSTILE       // Immediate suppression
+  OUT_OF_OFFICE          // Automated
+  BOUNCE                 // Automated
+  UNCLASSIFIED
+}
+
+enum PipelineStage {
+  IDENTIFIED       // 0 — in database, not contacted
+  CONTACTED        // 1 — first outbound sent
+  ENGAGED          // 2 — positive/neutral reply
+  QUALIFIED        // 3 — fit confirmed, interest validated (Mohsin takes over)
+  DEMO_SCHEDULED   // 4 — calendar event accepted
+  PROPOSAL         // 5 — pricing/scope delivered
+  CLOSED_WON       // 6 — contract signed
+  CLOSED_LOST      // 7 — declined/competitor/no budget
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum TaskPriority {
+  URGENT    // red — SLA <2hr
+  HIGH      // orange — SLA <4hr
+  NORMAL    // yellow — SLA <24hr
+  LOW       // green — informational
+}
+
+enum MailboxWarmupStatus {
+  NOT_STARTED
+  WARMING
+  WARM
+  COOLING
+  DISABLED
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  REJECTED
+}
+
+enum ProfileType {
+  PERSONAL
+  COMPANY
+}
+
+enum SyncJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ─── MODELS ─────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  role          UserRole  @default(OPERATOR)
+  avatarUrl     String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  ownedContacts     Contact[]          @relation("ContactOwner")
+  assignedTasks     Task[]             @relation("TaskAssignee")
+  createdTasks      Task[]             @relation("TaskCreator")
+  notes             Note[]
+  activityLogs      ActivityLog[]
+  contentItems      ContentItem[]      @relation("ContentCreator")
+  contentApprovals  ContentApproval[]
+  triageActions     ReplyEvent[]       @relation("TriageAgent")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Account {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String?  @unique
+  industry    String?
+  website     String?
+  aumRange    String?  // e.g. "$200M-$500M"
+  status      String   @default("prospect") // prospect, active, churned, disqualified
+  notes       String?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contacts    Contact[]
+  tasks       Task[]     @relation("AccountTasks")
+
+  @@index([status])
+  @@index([name])
+}
+
+model Contact {
+  id              String    @id @default(cuid())
+  firstName       String
+  lastName        String
+  fullName        String    // computed: firstName + lastName
+  title           String?
+  email           String    @unique
+  linkedinUrl     String?
+  phone           String?
+  timezone        String?
+  city            String?
+  state           String?
+  country         String?
+  notes           String?
+
+  // Qualification — drives tier assignment and routing
+  tier            ContactTier   @default(C)
+  fitScore        Int           @default(0)   // 0-100 ICP fit
+  priorityScore   Int           @default(0)   // 0-100 engagement priority
+  estimatedAum    String?                     // firm-level AUM estimate
+  roleSeniority   String?                     // C-suite, VP, Director, Manager, Other
+
+  // Deliverability — determines if contact is sendable
+  emailVerificationStatus  VerificationStatus @default(UNVERIFIED)
+  doNotContact             Boolean            @default(false)
+  suppressionReason        String?
+  // sendable = verified + !doNotContact + !suppressed (computed in service layer)
+
+  // Relationships
+  ownerId         String?
+  owner           User?     @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  accountId       String?
+  account         Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Related
+  tags              ContactTagAssignment[]
+  enrollments       SequenceEnrollment[]
+  messages          Message[]
+  replyEvents       ReplyEvent[]
+  pipelineRecord    PipelineRecord?
+  stageHistory      PipelineStageHistory[]
+  tasks             Task[]              @relation("ContactTasks")
+  contactNotes      Note[]
+  verifications     VerificationRecord[]
+  suppressions      Suppression[]
+
+  @@index([tier])
+  @@index([emailVerificationStatus])
+  @@index([doNotContact])
+  @@index([ownerId])
+  @@index([accountId])
+  @@index([fitScore])
+  @@index([createdAt])
+  // Composite: sendable contacts query (verification + doNotContact)
+  @@index([emailVerificationStatus, doNotContact])
+  // Composite: tier-based outreach queries
+  @@index([tier, emailVerificationStatus, doNotContact])
+  // Composite: owner dashboard view
+  @@index([ownerId, tier])
+}
+
+model ContactTag {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String @default("#6b7280")
+
+  assignments ContactTagAssignment[]
+}
+
+model ContactTagAssignment {
+  id        String     @id @default(cuid())
+  contactId String
+  tagId     String
+  contact   Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       ContactTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([contactId, tagId])
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  name            String         // e.g. "Tier A Reactivation"
+  description     String?
+  targetAudience  String?        // e.g. "Tier A — PE/RE sponsors"
+  status          CampaignStatus @default(DRAFT)
+  sequenceStrategy String?       // e.g. "3-step RE Sponsor sequence"
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  sequences       Sequence[]
+  enrollments     SequenceEnrollment[]
+
+  @@index([status])
+}
+
+model Sequence {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name        String   // e.g. "5.1 RE Sponsor 3-Step"
+  steps       Int      @default(3)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enrollments SequenceEnrollment[]
+}
+
+// Tracks each contact's journey through a campaign sequence
+// Sending happens in Instantly.ai — this is the source of truth
+model SequenceEnrollment {
+  id                String           @id @default(cuid())
+  contactId         String
+  contact           Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaignId        String
+  campaign          Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sequenceId        String?
+  sequence          Sequence?        @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+  mailboxId         String?
+  mailbox           Mailbox?         @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+
+  // Instantly.ai tracking
+  sendingSystem     String           @default("instantly") // vendor name
+  externalId        String?          // Instantly campaign/lead ID
+  currentStep       Int              @default(0)
+  status            EnrollmentStatus @default(PENDING)
+  pausedReason      String?
+  stopReason        String?
+
+  lastSyncAt        DateTime?
+  nextSendDate      DateTime?
+  enrolledAt        DateTime         @default(now())
+  completedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status])
+  @@index([contactId])
+  @@index([campaignId])
+  @@index([mailboxId])
+  @@index([nextSendDate])
+  // Composite: active enrollments per campaign
+  @@index([campaignId, status])
+  // Composite: contact enrollment history
+  @@index([contactId, status])
+}
+
+// Sender mailbox configuration and health tracking
+// CRITICAL: Never send cold email from akru.co directly
+model Mailbox {
+  id              String              @id @default(cuid())
+  email           String              @unique
+  domain          String              // must NOT be akru.co for cold outbound
+  senderName      String
+  dailyMax        Int                 @default(50)
+  weeklyMax       Int                 @default(250)
+  minGapMinutes   Int                 @default(2)
+  warmupStatus    MailboxWarmupStatus  @default(NOT_STARTED)
+  isActive        Boolean             @default(true)
+  reputationNotes String?
+
+  // Health metrics (updated by sync jobs)
+  sentCount       Int   @default(0)
+  replyCount      Int   @default(0)
+  bounceCount     Int   @default(0)
+  spamCount       Int   @default(0)
+  openRate        Float?
+
+  // Alert thresholds
+  alertOpenRate     Float @default(0.20)   // warn if below 20%
+  alertBounceRate   Float @default(0.03)   // warn if above 3%
+  alertSpamMax      Int   @default(0)      // warn if spam > 0
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  enrollments     SequenceEnrollment[]
+  messages        Message[]
+
+  @@index([isActive])
+  @@index([domain])
+}
+
+model VerificationRecord {
+  id            String             @id @default(cuid())
+  contactId     String
+  contact       Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  provider      String             @default("zerobounce") // zerobounce, neverbounce, manual
+  status        VerificationStatus
+  rawResponse   Json?
+  verifiedAt    DateTime           @default(now())
+
+  @@index([contactId])
+  @@index([status])
+}
+
+model Message {
+  id            String           @id @default(cuid())
+  contactId     String
+  contact       Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  mailboxId     String?
+  mailbox       Mailbox?         @relation(fields: [mailboxId], references: [id], onDelete: SetNull)
+  direction     MessageDirection
+  subject       String?
+  bodyPreview   String?          // first 500 chars
+  bodyFull      String?          // full message text
+  externalId    String?          // Instantly message ID
+  sentAt        DateTime?
+  receivedAt    DateTime?
+  createdAt     DateTime         @default(now())
+
+  replyEvent    ReplyEvent?
+
+  @@index([contactId])
+  @@index([direction])
+  @@index([sentAt])
+  // Composite: contact message timeline
+  @@index([contactId, sentAt])
+  // Composite: inbound replies for triage sync
+  @@index([direction, receivedAt])
+}
+
+// Central triage queue — every inbound reply lands here
+model ReplyEvent {
+  id              String        @id @default(cuid())
+  contactId       String
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  messageId       String?       @unique
+  message         Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  subject         String?
+  bodyPreview     String?
+  bodyFull        String?
+  receivedAt      DateTime
+  senderEmail     String
+
+  // Classification — rule-based initially, AI-ready abstraction
+  category        ReplyCategory @default(UNCLASSIFIED)
+  confidence      Float         @default(0)  // 0-1 classification confidence
+  urgency         String?                    // computed from SLA config
+  sentiment       String?                    // positive, neutral, negative
+
+  // Triage state
+  isTriaged       Boolean       @default(false)
+  triagedById     String?
+  triagedBy       User?         @relation("TriageAgent", fields: [triagedById], references: [id], onDelete: SetNull)
+  triagedAt       DateTime?
+  triageAction    String?       // e.g. "escalated_to_mohsin", "created_task", "suppressed"
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tasks           Task[]        @relation("ReplyTasks")
+
+  @@index([category])
+  @@index([isTriaged])
+  @@index([receivedAt])
+  @@index([contactId])
+  // Composite: triage queue (untriaged sorted by recency)
+  @@index([isTriaged, receivedAt])
+  // Composite: triage queue by category
+  @@index([isTriaged, category, receivedAt])
+  // Composite: triaged history for audit
+  @@index([isTriaged, triagedAt])
+}
+
+model PipelineRecord {
+  id          String        @id @default(cuid())
+  contactId   String        @unique // one pipeline record per contact
+  contact     Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  stage       PipelineStage @default(IDENTIFIED)
+  enteredAt   DateTime      @default(now()) // when they entered current stage
+  updatedAt   DateTime      @updatedAt
+
+  @@index([stage])
+}
+
+model PipelineStageHistory {
+  id          String        @id @default(cuid())
+  contactId   String
+  contact     Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  fromStage   PipelineStage?
+  toStage     PipelineStage
+  reason      String?       // what triggered the move
+  movedById   String?       // user who moved it (null = automated)
+  movedAt     DateTime      @default(now())
+
+  @@index([contactId])
+  @@index([toStage])
+  @@index([movedAt])
+  // Composite: contact timeline (stage history sorted by time)
+  @@index([contactId, movedAt])
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  dueAt         DateTime
+  priority      TaskPriority @default(NORMAL)
+  status        TaskStatus   @default(OPEN)
+
+  assignedToId  String?
+  assignedTo    User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById   String?
+  createdBy     User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Polymorphic links
+  contactId     String?
+  contact       Contact?     @relation("ContactTasks", fields: [contactId], references: [id], onDelete: SetNull)
+  accountId     String?
+  account       Account?     @relation("AccountTasks", fields: [accountId], references: [id], onDelete: SetNull)
+  replyEventId  String?
+  replyEvent    ReplyEvent?  @relation("ReplyTasks", fields: [replyEventId], references: [id], onDelete: SetNull)
+
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([dueAt])
+  @@index([assignedToId])
+  @@index([contactId])
+  // Composite: SLA task queue (open tasks sorted by due date)
+  @@index([status, dueAt])
+  // Composite: overdue urgent tasks (dashboard red card)
+  @@index([status, priority, dueAt])
+  // Composite: assignee task queue
+  @@index([assignedToId, status, dueAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contactId])
+  @@index([authorId])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  action      String   // e.g. "contact.created", "stage.changed", "reply.classified"
+  entityType  String   // Contact, ReplyEvent, Task, ContentItem, etc.
+  entityId    String
+  details     Json?    // structured payload: { from: "IDENTIFIED", to: "CONTACTED" }
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ─── CONTENT ENGINE ─────────────────────────────────────────────────
+
+model ContentProfile {
+  id          String      @id @default(cuid())
+  name        String      // "Mohsin Personal", "AKRU Page"
+  type        ProfileType
+  platform    String      @default("linkedin")
+  handle      String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  contentItems ContentItem[]
+}
+
+model ContentItem {
+  id              String        @id @default(cuid())
+  profileId       String
+  profile         ContentProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  creatorId       String
+  creator         User          @relation("ContentCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  publishDate     DateTime
+  publishTime     String?       // e.g. "09:00"
+  pillar          String?       // thought leadership, product, case study, industry
+  topic           String?
+  draftText       String
+  status          ContentStatus @default(DRAFT)
+  revisionNotes   String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  approvals       ContentApproval[]
+
+  @@index([status])
+  @@index([publishDate])
+  @@index([profileId])
+  // Composite: content calendar view (profile + date range)
+  @@index([profileId, publishDate])
+  // Composite: approval queue
+  @@index([status, publishDate])
+}
+
+// Nothing publishes without explicit approval
+model ContentApproval {
+  id            String   @id @default(cuid())
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  approverId    String
+  approver      User     @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  decision      String   // approved, rejected
+  notes         String?
+  decidedAt     DateTime @default(now())
+
+  @@index([contentItemId])
+}
+
+// ─── INTEGRATION & SYNC ─────────────────────────────────────────────
+
+model IntegrationConnection {
+  id          String   @id @default(cuid())
+  provider    String   // instantly, zerobounce, buffer, google_calendar
+  status      String   @default("active") // active, paused, error
+  config      Json?    // encrypted API keys, webhook URLs
+  lastSyncAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  syncJobs    SyncJob[]
+}
+
+model SyncJob {
+  id              String        @id @default(cuid())
+  connectionId    String
+  connection      IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  jobType         String        // e.g. "sync_replies", "sync_enrollments", "verify_emails"
+  status          SyncJobStatus @default(PENDING)
+  payload         Json?
+  result          Json?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime      @default(now())
+
+  @@index([status])
+  @@index([connectionId])
+}
+
+// ─── SUPPRESSION ────────────────────────────────────────────────────
+
+model Suppression {
+  id            String   @id @default(cuid())
+  contactId     String?
+  contact       Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  email         String
+  reason        String   // hostile, unsubscribed, bounced, manual, legal
+  source        String?  // "reply_triage", "instantly_sync", "manual"
+  suppressedAt  DateTime @default(now())
+
+  @@unique([email])
+  @@index([reason])
+}
+
+// ─── CONFIGURATION ──────────────────────────────────────────────────
+
+model ResponseTemplate {
+  id          String @id @default(cuid())
+  name        String
+  category    ReplyCategory
+  subject     String?
+  body        String
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+// Defines automatic stage movement rules
+model StageRule {
+  id          String        @id @default(cuid())
+  trigger     String        // e.g. "first_outbound", "positive_reply", "calendar_accepted"
+  fromStage   PipelineStage?
+  toStage     PipelineStage
+  isActive    Boolean       @default(true)
+  description String?
+  createdAt   DateTime      @default(now())
+}
+
+// SLA configuration per reply category
+model SLAConfig {
+  id              String        @id @default(cuid())
+  category        ReplyCategory @unique
+  maxMinutes      Int           // SLA deadline in minutes
+  assignToRole    UserRole?     // auto-assign to this role
+  autoAction      String?       // e.g. "suppress", "pause_sequence"
+  description     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
