@@ -1,5 +1,5 @@
 import { ReplyEvent, TaskStatus, TaskPriority, PipelineStage, ReplyCategory } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from "@/lib/prisma";
 import { computeSLADeadline, getSLAOwner } from './sla';
 import { processStageTransition } from './pipeline';
 
@@ -24,6 +24,7 @@ export async function handleTriageAction(
   userId: string
 ): Promise<{ success: boolean; message: string; replyEventId?: string }> {
   try {
+    const prisma = getPrisma();
     // Get the reply event
     const replyEvent = await prisma.replyEvent.findUnique({
       where: { id: replyEventId },
@@ -78,6 +79,7 @@ export async function handleTriageAction(
  * Escalate reply to Mohsin
  */
 async function handleEscalateToMohsin(replyEvent: ReplyEvent & { contact?: { id: string; firstName: string; lastName: string } | null }, userId: string) {
+  const prisma = getPrisma();
   // Get Mohsin user
   const mohsin = await prisma.user.findFirst({
     where: { role: 'MOHSIN' },
@@ -137,6 +139,7 @@ async function handleAssignToTeamMember(
   userId: string,
   memberName: 'sena' | 'jawad'
 ) {
+  const prisma = getPrisma();
   // Get user by name (in practice, would map to actual user IDs)
   const member = await prisma.user.findFirst({
     where: { firstName: memberName === 'sena' ? 'Sena' : 'Jawad' },
@@ -211,6 +214,7 @@ async function handleAssignToTeamMember(
  * Mark contact as unsubscribed
  */
 async function handleMarkUnsubscribed(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   // Add to suppression list
   await prisma.suppression.upsert({
     where: { email: replyEvent.senderEmail },
@@ -259,6 +263,7 @@ async function handleMarkUnsubscribed(replyEvent: any, userId: string) {
  * Mark contact as hostile (immediate suppression)
  */
 async function handleMarkHostile(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   // Add to suppression list
   await prisma.suppression.upsert({
     where: { email: replyEvent.senderEmail },
@@ -308,6 +313,7 @@ async function handleMarkHostile(replyEvent: any, userId: string) {
  * Pause contact's sequence in outbound system
  */
 async function handlePauseSequence(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   // Update all active enrollments for this contact
   await prisma.sequenceEnrollment.updateMany({
     where: {
@@ -347,6 +353,7 @@ async function handlePauseSequence(replyEvent: any, userId: string) {
  * Create a task for the reply
  */
 async function handleCreateTask(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   const dueAt = computeSLADeadline(replyEvent.category, replyEvent.receivedAt);
 
   const task = await prisma.task.create({
@@ -388,6 +395,7 @@ async function handleCreateTask(replyEvent: any, userId: string) {
  * Move contact to nurture sequence
  */
 async function handleMoveToNurture(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   // Find or create a nurture campaign
   const nurtureCampaign = await prisma.campaign.findFirst({
     where: {
@@ -457,6 +465,7 @@ async function handleMoveToNurture(replyEvent: any, userId: string) {
  * Convert contact to qualified stage
  */
 async function handleConvertToQualified(replyEvent: any, userId: string) {
+  const prisma = getPrisma();
   // Move pipeline stage
   const result = await processStageTransition(replyEvent.contactId, 'fit_confirmed', userId);
 
@@ -518,6 +527,7 @@ async function logActivity(
   details?: Record<string, any>
 ): Promise<void> {
   try {
+    const prisma = getPrisma();
     await prisma.activityLog.create({
       data: {
         action,
